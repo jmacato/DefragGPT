@@ -1,32 +1,31 @@
 ﻿using System.Diagnostics;
 
-namespace DefragGPT;
 
-class Program
+internal class Program
 {
+    private const int Rows = 16;
+    private const int Cols = 76;
+    private static readonly char[][] _map = Enumerable.Repeat(0, Rows).Select(x => new char[Cols]).ToArray();
+
+    //Store
+    private static string _bar = "Reading...";
+    private static int _blockClusterSize = 41;
+    private static int _fragmentCount;
+    private static int _defragged;
+    private static int _writeLoc;
+    private static bool _paused;
+    private static readonly List<(int r, int c)> defraggedCoords = new();
+    private static Stopwatch _stopwatch = new Stopwatch();
+
     private static void Main(string[] args)
     {
-        const int Rows = 16;
-        const int Cols = 76;
-        var _map = Enumerable.Repeat(0, Rows).Select(x => new char[Cols]).ToArray();
-
-//Store
-        var _bar = "Reading...";
-        var _blockClusterSize = 41;
-        var _fragmentCount = 1;
-        var _defragged = 0;
-        var _writeLoc = 0;
-        var _paused = true;
-        List<(int r, int c)> defraggedCoords = new();
-        var _stopwatch = new Stopwatch();
-
         _stopwatch.Start();
 
         for (var i = 0; i < Rows; i++)
         for (var j = 0; j < Cols; j++)
             if (1 == Random(0, Random(1, 15)))
             {
-                _fragmentCount++;
+                if (!_paused) IncrementFragments();
 
                 _map[i][j] = '■';
             }
@@ -45,38 +44,45 @@ class Program
 
         _map[0][0] = 'X';
 
+        ;
+
         int DeducePos((int, int) coord)
         {
             var (r, c) = coord;
             return 76 * r + c;
         }
 
+        ;
+
         void WriteNewBlock()
         {
-            _bar = "Writing...";
-            _writeLoc += 1;
+            SetBar("Writing...");
+            IncrementWriteloc();
             if (_writeLoc >= 1216)
             {
                 Console.WriteLine("WriteLoc wrapped");
-                _writeLoc = 0;
+                ResetWriteLoc();
             }
 
             var (r, c) = DeduceRc(_writeLoc);
             switch (_map[r][c])
             {
                 case '▓':
+                    // Console.BackgroundColor = ConsoleColor.Yellow;
                     _map[r][c] = '■';
                     defraggedCoords.Add((r, c));
 
                     break;
                 case '■':
-                    _defragged += 1;
+                    IncrementDefragged();
+                    // Console.BackgroundColor = ConsoleColor.Yellow;
                     defraggedCoords.Add((r, c));
 
                     _map[r][c] = '■';
                     WriteNewBlock();
                     break;
                 default:
+                    // Console.BackgroundColor = ConsoleColor.Black;
                     WriteNewBlock();
                     break;
             }
@@ -111,10 +117,10 @@ class Program
                             Array.Resize(ref missLog, missLog.Length + 1);
                             missLog[^1] = DeducePos((s, t));
                             _map[s][t] = 'r';
-                            _bar = "Reading...";
+                            SetBar("Reading...");
                             break;
                         case '■':
-                            _defragged += 1;
+                            IncrementDefragged();
                             _map[s][t] = 'r';
                             Thread.Sleep(250);
                             WriteNewBlock();
@@ -175,6 +181,31 @@ class Program
             Console.WriteLine(_bar);
         }
 
+        void SetBar(string s)
+        {
+            _bar = s;
+        }
+
+        void IncrementWriteloc()
+        {
+            _writeLoc++;
+        }
+
+        void ResetWriteLoc()
+        {
+            _writeLoc = 0;
+        }
+
+        void IncrementFragments()
+        {
+            _fragmentCount++;
+        }
+
+        void IncrementDefragged()
+        {
+            _defragged++;
+        }
+
         void PauseDefrag()
         {
             _paused = true;
@@ -189,12 +220,12 @@ class Program
         {
             return System.Random.Shared.Next(min, max);
         }
+    }
 
-        (int r, int c) DeduceRc(int num)
-        {
-            var r = (int)Math.Floor(num / 76d);
-            var c = num % 76;
-            return (r, c);
-        }
+    private static (int r, int c) DeduceRc(int num)
+    {
+        var r = (int)Math.Floor(num / 76d);
+        var c = num % 76;
+        return (r, c);
     }
 }
